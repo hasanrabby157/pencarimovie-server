@@ -1,0 +1,228 @@
+name: Test Blitz Pencari Network
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright
+        run: |
+          npm install playwright
+          npx playwright install chromium --with-deps
+
+      - name: Open Pencari and Capture Requests
+        env:
+          PENCARI_PASSWORD: ${{ secrets.PENCARI_PASSWORD }}
+        run: |
+          node <<'EOF'
+          const { chromium } = require('playwright');
+
+          (async () => {
+
+            const browser = await chromium.launch({
+              headless: true
+            });
+
+            const page = await browser.newPage();
+
+            console.log('');
+            console.log('========================================');
+            console.log('STARTING NETWORK MONITOR');
+            console.log('========================================');
+
+            const requests = [];
+            const responses = [];
+
+            // Capture requests BEFORE opening the page
+            page.on('request', request => {
+
+              const url = request.url();
+
+              if (
+                url.includes('blitz.cloud') ||
+                url.includes('pencarimovie') ||
+                url.includes('.json') ||
+                url.includes('/api/') ||
+                url.includes('manifest') ||
+                url.includes('catalog') ||
+                url.includes('stream')
+              ) {
+                requests.push({
+                  method: request.method(),
+                  url: url
+                });
+
+                console.log(
+                  `[REQUEST] ${request.method()} ${url}`
+                );
+              }
+            });
+
+            // Capture responses
+            page.on('response', response => {
+
+              const url = response.url();
+
+              if (
+                url.includes('blitz.cloud') ||
+                url.includes('pencarimovie') ||
+                url.includes('.json') ||
+                url.includes('/api/') ||
+                url.includes('manifest') ||
+                url.includes('catalog') ||
+                url.includes('stream')
+              ) {
+                responses.push({
+                  status: response.status(),
+                  url: url
+                });
+
+                console.log(
+                  `[RESPONSE] ${response.status()} ${url}`
+                );
+              }
+            });
+
+            console.log('');
+            console.log('Opening Pencari...');
+
+            await page.goto(
+              'https://pencarimovie.blitz.cloud/',
+              {
+                waitUntil: 'domcontentloaded',
+                timeout: 30000
+              }
+            );
+
+            console.log('Initial URL:', page.url());
+            console.log('Initial title:', await page.title());
+
+            console.log('');
+            console.log('Waiting for password field...');
+
+            const password = page.locator('input').first();
+
+            await password.waitFor({
+              state: 'visible',
+              timeout: 10000
+            });
+
+            await password.fill(process.env.PENCARI_PASSWORD);
+
+            console.log('Password entered');
+
+            await page.getByRole(
+              'button',
+              { name: /connect/i }
+            ).click();
+
+            console.log('Connect clicked');
+
+            // Give Pencari time to load everything
+            await page.waitForTimeout(15000);
+
+            console.log('');
+            console.log('========================================');
+            console.log('FINAL PAGE');
+            console.log('========================================');
+
+            console.log('Current URL:', page.url());
+            console.log('Page title:', await page.title());
+
+            console.log('');
+            console.log('========================================');
+            console.log('ALL PAGE LINKS');
+            console.log('========================================');
+
+            const links = await page.locator('a').evaluateAll(
+              elements =>
+                elements.map(a => ({
+                  text: (a.innerText || '').trim(),
+                  href: a.href
+                }))
+            );
+
+            for (const link of links) {
+              console.log(
+                `[LINK] ${link.text} -> ${link.href}`
+              );
+            }
+
+            console.log('');
+            console.log('========================================');
+            console.log('REQUEST SUMMARY');
+            console.log('========================================');
+
+            console.log('Total captured requests:', requests.length);
+            console.log('Total captured responses:', responses.length);
+
+            console.log('');
+            console.log('========================================');
+            console.log('JSON / API / MANIFEST REQUESTS');
+            console.log('========================================');
+
+            for (const request of requests) {
+
+              const url = request.url.toLowerCase();
+
+              if (
+                url.includes('.json') ||
+                url.includes('/api/') ||
+                url.includes('manifest') ||
+                url.includes('catalog')
+              ) {
+                console.log(
+                  `[IMPORTANT REQUEST] ${request.method()} ${request.url}`
+                );
+              }
+            }
+
+            console.log('');
+            console.log('========================================');
+            console.log('JSON / API / MANIFEST RESPONSES');
+            console.log('========================================');
+
+            for (const response of responses) {
+
+              const url = response.url.toLowerCase();
+
+              if (
+                url.includes('.json') ||
+                url.includes('/api/') ||
+                url.includes('manifest') ||
+                url.includes('catalog')
+              ) {
+                console.log(
+                  `[IMPORTANT RESPONSE] ${response.status()} ${response.url}`
+                );
+              }
+            }
+
+            console.log('');
+            console.log('========================================');
+            console.log('TEST COMPLETE');
+            console.log('========================================');
+
+            await browser.close();
+
+          })().catch(error => {
+
+            console.error('');
+            console.error('========================================');
+            console.error('TEST FAILED');
+            console.error('========================================');
+
+            console.error(error);
+
+            process.exit(1);
+          });
+
+          EOF
