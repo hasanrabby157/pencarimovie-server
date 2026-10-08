@@ -46,13 +46,15 @@ jobs:
 
             console.log('Password page loaded');
 
-            const password = page.locator('input[type="password"]');
+            const inputs = page.locator('input');
 
-            await password.fill(process.env.PENCARI_PASSWORD);
+console.log('Input count:', await inputs.count());
 
-            console.log('Password entered');
+await inputs.first().fill(process.env.PENCARI_PASSWORD);
 
-            await page.locator('button').first().click();
+console.log('Password entered');
+
+await page.locator('button').first().click();
 
             await page.waitForTimeout(5000);
 
