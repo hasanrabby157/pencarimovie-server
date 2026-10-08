@@ -20,7 +20,7 @@ jobs:
           npm install playwright
           npx playwright install chromium --with-deps
 
-      - name: Inspect Pencari Login Page
+      - name: Login and visit Pencari
         env:
           PENCARI_PASSWORD: ${{ secrets.PENCARI_PASSWORD }}
         run: |
@@ -37,28 +37,113 @@ jobs:
             console.log('Opening Pencari...');
 
             await page.goto(
-              'https://pencarimovie-server.pencarimovie.blitz.cloud/',
+              'https://pencarimovie.blitz.cloud/',
               {
                 waitUntil: 'domcontentloaded',
                 timeout: 30000
               }
             );
 
-            console.log('Password page loaded');
+            console.log('Pencari password page loaded');
 
-            await page.waitForTimeout(3000);
+            const password = page.locator('input').first();
 
-            console.log('Page URL:', page.url());
+            await password.waitFor({
+              state: 'visible',
+              timeout: 10000
+            });
+
+            await password.fill(process.env.PENCARI_PASSWORD);
+
+            console.log('Password entered');
+
+            await page.getByRole('button', { name: /connect/i }).click();
+
+            console.log('Connect clicked');
+
+            await page.waitForTimeout(5000);
+
+            console.log('Current URL:', page.url());
             console.log('Page title:', await page.title());
 
-            console.log('--- PAGE HTML START ---');
-            console.log(
-              (await page.locator('body').innerHTML()).slice(0, 10000)
-            );
-            console.log('--- PAGE HTML END ---');
+            await page.waitForTimeout(10000);
 
             await browser.close();
 
-            console.log('Inspection complete.');
+            console.log('Done.');
+          })();
+          EOFname: Keep Blitz Awake
+
+on:
+  schedule:
+    - cron: '*/25 * * * *'
+  workflow_dispatch:
+
+jobs:
+  visit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright
+        run: |
+          npm install playwright
+          npx playwright install chromium --with-deps
+
+      - name: Login and visit Pencari
+        env:
+          PENCARI_PASSWORD: ${{ secrets.PENCARI_PASSWORD }}
+        run: |
+          node <<'EOF'
+          const { chromium } = require('playwright');
+
+          (async () => {
+            const browser = await chromium.launch({
+              headless: true
+            });
+
+            const page = await browser.newPage();
+
+            console.log('Opening Pencari...');
+
+            await page.goto(
+              'https://pencarimovie.blitz.cloud/',
+              {
+                waitUntil: 'domcontentloaded',
+                timeout: 30000
+              }
+            );
+
+            console.log('Pencari password page loaded');
+
+            const password = page.locator('input').first();
+
+            await password.waitFor({
+              state: 'visible',
+              timeout: 10000
+            });
+
+            await password.fill(process.env.PENCARI_PASSWORD);
+
+            console.log('Password entered');
+
+            await page.getByRole('button', { name: /connect/i }).click();
+
+            console.log('Connect clicked');
+
+            await page.waitForTimeout(5000);
+
+            console.log('Current URL:', page.url());
+            console.log('Page title:', await page.title());
+
+            await page.waitForTimeout(10000);
+
+            await browser.close();
+
+            console.log('Done.');
           })();
           EOF
