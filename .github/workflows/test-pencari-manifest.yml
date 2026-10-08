@@ -1,0 +1,164 @@
+name: Test Pencari Manifest
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright
+        run: |
+          npm install playwright
+          npx playwright install chromium --with-deps
+
+      - name: Login and Test Manifest
+        env:
+          PENCARI_PASSWORD: ${{ secrets.PENCARI_PASSWORD }}
+        run: |
+          node <<'EOF'
+          const { chromium } = require('playwright');
+
+          (async () => {
+
+            const browser = await chromium.launch({
+              headless: true
+            });
+
+            const page = await browser.newPage();
+
+            console.log('Opening Pencari...');
+
+            await page.goto(
+              'https://pencarimovie.blitz.cloud/',
+              {
+                waitUntil: 'domcontentloaded',
+                timeout: 30000
+              }
+            );
+
+            console.log('Page loaded');
+
+            const password = page.locator('input').first();
+
+            await password.waitFor({
+              state: 'visible',
+              timeout: 10000
+            });
+
+            await password.fill(process.env.PENCARI_PASSWORD);
+
+            console.log('Password entered');
+
+            await page.getByRole(
+              'button',
+              { name: /connect/i }
+            ).click();
+
+            console.log('Connect clicked');
+
+            // Wait for the Pencari app to finish loading
+            await page.waitForTimeout(10000);
+
+            console.log('');
+            console.log('========================================');
+            console.log('SEARCHING FOR MANIFEST');
+            console.log('========================================');
+
+            const links = await page.locator('a').evaluateAll(
+              elements =>
+                elements.map(a => ({
+                  text: (a.innerText || '').trim(),
+                  href: a.href
+                }))
+            );
+
+            const manifestLink = links.find(
+              link =>
+                link.href.includes('stremio://') &&
+                link.href.includes('/manifest.json')
+            );
+
+            if (!manifestLink) {
+              console.log('Manifest link was NOT found.');
+              await browser.close();
+              process.exit(1);
+            }
+
+            console.log('');
+            console.log('MANIFEST FOUND:');
+            console.log(manifestLink.href);
+
+            // Convert stremio:// URL to normal HTTPS URL
+            const manifestUrl =
+              manifestLink.href
+                .replace(
+                  'stremio://',
+                  'https://'
+                );
+
+            console.log('');
+            console.log('HTTPS MANIFEST URL:');
+            console.log(manifestUrl);
+
+            console.log('');
+            console.log('========================================');
+            console.log('REQUESTING MANIFEST');
+            console.log('========================================');
+
+            const response = await page.request.get(
+              manifestUrl,
+              {
+                timeout: 30000
+              }
+            );
+
+            console.log('');
+            console.log('HTTP STATUS:', response.status());
+            console.log('HTTP STATUS TEXT:', response.statusText());
+
+            const body = await response.text();
+
+            console.log('');
+            console.log('RESPONSE SIZE:', body.length, 'bytes');
+
+            console.log('');
+            console.log('RESPONSE PREVIEW:');
+            console.log(
+              body.substring(0, 1000)
+            );
+
+            console.log('');
+            console.log('========================================');
+
+            if (response.ok()) {
+              console.log('MANIFEST REQUEST SUCCESS');
+              console.log('========================================');
+            } else {
+              console.log('MANIFEST REQUEST FAILED');
+              console.log('========================================');
+
+              process.exit(1);
+            }
+
+            await browser.close();
+
+          })().catch(error => {
+
+            console.error('');
+            console.error('========================================');
+            console.error('TEST ERROR');
+            console.error('========================================');
+
+            console.error(error);
+
+            process.exit(1);
+          });
+
+          EOF
