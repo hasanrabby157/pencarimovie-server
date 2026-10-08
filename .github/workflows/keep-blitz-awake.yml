@@ -20,7 +20,7 @@ jobs:
           npm install playwright
           npx playwright install chromium --with-deps
 
-      - name: Login and visit Pencari
+      - name: Inspect Pencari Login Page
         env:
           PENCARI_PASSWORD: ${{ secrets.PENCARI_PASSWORD }}
         run: |
@@ -46,25 +46,19 @@ jobs:
 
             console.log('Password page loaded');
 
-            const inputs = page.locator('input');
+            await page.waitForTimeout(3000);
 
-            console.log('Input count:', await inputs.count());
-
-            await inputs.first().fill(process.env.PENCARI_PASSWORD);
-
-            console.log('Password entered');
-
-            await page.locator('button').first().click();
-
-            await page.waitForTimeout(5000);
-
-            console.log('Current URL:', page.url());
+            console.log('Page URL:', page.url());
             console.log('Page title:', await page.title());
 
-            await page.waitForTimeout(10000);
+            console.log('--- PAGE HTML START ---');
+            console.log(
+              (await page.locator('body').innerHTML()).slice(0, 10000)
+            );
+            console.log('--- PAGE HTML END ---');
 
             await browser.close();
 
-            console.log('Done.');
+            console.log('Inspection complete.');
           })();
           EOF
