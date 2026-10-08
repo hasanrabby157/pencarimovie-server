@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 # Multi-arch Dockerfile leveraging pre-packaged Linux releases
 
 FROM alpine:latest AS builder
