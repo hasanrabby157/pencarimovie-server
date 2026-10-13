@@ -33,8 +33,6 @@ steps:
         try {
           const page = await browser.newPage();
 
-          console.log('Opening PencariMovie on Orkestr...');
-
           await page.goto(
             'https://pencarimovie-server1.orkestr.run/',
             {
@@ -43,29 +41,20 @@ steps:
             }
           );
 
-          console.log('Page title:', await page.title());
-
           const password = page.locator('input').first();
-
-          await password.waitFor({
-            state: 'visible',
-            timeout: 20000
-          });
-
+          await password.waitFor({ state: 'visible', timeout: 20000 });
           await password.fill(process.env.PENCARI_PASSWORD);
 
           await page.getByRole('button', { name: /connect/i }).click();
-
           await page.waitForTimeout(10000);
 
           console.log('Current URL:', page.url());
-          console.log('Page title after connection:', await page.title());
+          console.log('Page title:', await page.title());
 
           await page.screenshot({
             path: 'pencari-after-login.png',
             fullPage: true
           });
-
         } finally {
           await browser.close();
         }
