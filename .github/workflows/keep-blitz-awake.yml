@@ -1,4 +1,5 @@
-name: Keep Blitz Awake
+
+name: Keep Orkestr Awake
 
 on:
   schedule:
@@ -32,57 +33,65 @@ jobs:
               headless: true
             });
 
-            const page = await browser.newPage();
+            try {
+              const page = await browser.newPage();
 
-            console.log('Opening Pencari...');
+              console.log('Opening Pencari...');
 
-            await page.goto(
-              'https://pencarimovie.blitz.cloud/',
-              {
-                waitUntil: 'domcontentloaded',
-                timeout: 30000
-              }
-            );
+              await page.goto(
+                'https://pencarimovie-server1.orkestr.run/',
+                {
+                  waitUntil: 'domcontentloaded',
+                  timeout: 30000
+                }
+              );
 
-            console.log('Pencari password page loaded');
+              console.log('Pencari password page loaded');
 
-            const password = page.locator('input').first();
+              const password = page.locator('input').first();
 
-            await password.waitFor({
-              state: 'visible',
-              timeout: 10000
-            });
+              await password.waitFor({
+                state: 'visible',
+                timeout: 10000
+              });
 
-            await password.fill(process.env.PENCARI_PASSWORD);
+              await password.fill(process.env.PENCARI_PASSWORD);
 
-            console.log('Password entered');
+              console.log('Password entered');
 
-            await page.getByRole('button', { name: /connect/i }).click();
+              await page.getByRole('button', { name: /connect/i }).click();
 
-            console.log('Connect clicked');
+              console.log('Connect clicked');
 
-            await page.waitForTimeout(5000);
+              await page.waitForTimeout(5000);
 
-            console.log('Current URL:', page.url());
-            console.log('Page title:', await page.title());
+              console.log('Current URL:', page.url());
+              console.log('Page title:', await page.title());
 
-            await page.screenshot({
-              path: 'pencari-after-login.png',
-              fullPage: true
-            });
+              await page.screenshot({
+                path: 'pencari-after-login.png',
+                fullPage: true
+              });
 
-            console.log('Screenshot saved');
+              console.log('Screenshot saved');
 
-            await page.waitForTimeout(10000);
+              await page.waitForTimeout(10000);
 
-            await browser.close();
-
-            console.log('Done.');
-          })();
+              console.log('Done.');
+            } finally {
+              await browser.close();
+            }
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
           EOF
 
       - name: Upload screenshot
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pencari-after-login
           path: pencari-after-login.png
+          if-no-files-found: ignore
+          
