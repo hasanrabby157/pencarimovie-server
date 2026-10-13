@@ -1,4 +1,4 @@
-name: Keep Orkestr Awake
+name: Keep Blitz Awake
 
 on:
 schedule:
@@ -9,65 +9,80 @@ jobs:
 visit:
 runs-on: ubuntu-latest
 
-steps:
-  - name: Setup Node.js
-    uses: actions/setup-node@v4
-    with:
-      node-version: 20
+steps:  
+  - name: Setup Node  
+    uses: actions/setup-node@v4  
+    with:  
+      node-version: 20  
 
-  - name: Install Playwright
-    run: |
-      npm install playwright
-      npx playwright install chromium --with-deps
+  - name: Install Playwright  
+    run: |  
+      npm install playwright  
+      npx playwright install chromium --with-deps  
 
-  - name: Open Orkestr and connect
-    env:
-      PENCARI_PASSWORD: ${{ secrets.PENCARI_PASSWORD }}
-    run: |
-      node <<'EOF'
-      const { chromium } = require('playwright');
+  - name: Login and visit Pencari  
+    env:  
+      PENCARI_PASSWORD: ${{ secrets.PENCARI_PASSWORD }}  
+    run: |  
+      node <<'EOF'  
+      const { chromium } = require('playwright');  
 
-      (async () => {
-        const browser = await chromium.launch({ headless: true });
+      (async () => {  
+        const browser = await chromium.launch({  
+          headless: true  
+        });  
 
-        try {
-          const page = await browser.newPage();
+        const page = await browser.newPage();  
 
-          await page.goto(
-            'https://pencarimovie-server1.orkestr.run/',
-            {
-              waitUntil: 'domcontentloaded',
-              timeout: 60000
-            }
-          );
+        console.log('Opening Pencari...');  
 
-          const password = page.locator('input').first();
-          await password.waitFor({ state: 'visible', timeout: 20000 });
-          await password.fill(process.env.PENCARI_PASSWORD);
+        await page.goto(  
+          'https://pencarimovie.blitz.cloud/',  
+          {  
+            waitUntil: 'domcontentloaded',  
+            timeout: 30000  
+          }  
+        );  
 
-          await page.getByRole('button', { name: /connect/i }).click();
-          await page.waitForTimeout(10000);
+        console.log('Pencari password page loaded');  
 
-          console.log('Current URL:', page.url());
-          console.log('Page title:', await page.title());
+        const password = page.locator('input').first();  
 
-          await page.screenshot({
-            path: 'pencari-after-login.png',
-            fullPage: true
-          });
-        } finally {
-          await browser.close();
-        }
-      })().catch(error => {
-        console.error(error);
-        process.exit(1);
-      });
-      EOF
+        await password.waitFor({  
+          state: 'visible',  
+          timeout: 10000  
+        });  
 
-  - name: Save screenshot
-    if: always()
-    uses: actions/upload-artifact@v4
-    with:
-      name: pencari-after-login
+        await password.fill(process.env.PENCARI_PASSWORD);  
+
+        console.log('Password entered');  
+
+        await page.getByRole('button', { name: /connect/i }).click();  
+
+        console.log('Connect clicked');  
+
+        await page.waitForTimeout(5000);  
+
+        console.log('Current URL:', page.url());  
+        console.log('Page title:', await page.title());  
+
+        await page.screenshot({  
+          path: 'pencari-after-login.png',  
+          fullPage: true  
+        });  
+
+        console.log('Screenshot saved');  
+
+        await page.waitForTimeout(10000);  
+
+        await browser.close();  
+
+        console.log('Done.');  
+      })();  
+      EOF  
+
+  - name: Upload screenshot  
+    uses: actions/upload-artifact@v4  
+    with:  
+      name: pencari-after-login  
       path: pencari-after-login.png
-      if-no-files-found: ignore
