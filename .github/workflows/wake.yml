@@ -9,7 +9,7 @@ on:
 jobs:
   wake:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
 
     steps:
       - name: Setup Node.js
@@ -17,26 +17,30 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install Playwright and Chromium
-        run: |
-          npm install playwright
-          npx playwright install --with-deps chromium
+      - name: Install Playwright
+        run: npm install playwright-core
 
-      - name: Open PencariMovie in browser
+      - name: Open page in Browserless Chromium
+        env:
+          BROWSERLESS_TOKEN: ${{ secrets.BROWSERLESS_TOKEN }}
         run: |
           node <<'NODE'
-          const { chromium } = require('playwright');
+          const { chromium } = require('playwright-core');
 
           (async () => {
-            const browser = await chromium.launch({ headless: true });
-            const page = await browser.newPage();
+            const browser = await chromium.connectOverCDP(
+              `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_TOKEN}`
+            );
 
             try {
+              const context = browser.contexts()[0];
+              const page = await context.newPage();
+
               const response = await page.goto(
-                'https://pencarimovie.blitz.cloud',
+                'https://pencarimovie.blitz.cloud/',
                 {
                   waitUntil: 'domcontentloaded',
-                  timeout: 120000
+                  timeout: 90000
                 }
               );
 
@@ -45,6 +49,7 @@ jobs:
               console.log('Page title:', await page.title());
 
               await page.waitForTimeout(5000);
+              await page.close();
             } finally {
               await browser.close();
             }
