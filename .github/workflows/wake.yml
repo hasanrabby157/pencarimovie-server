@@ -1,0 +1,56 @@
+
+name: Wake PencariMovie
+
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright and Chromium
+        run: |
+          npm install playwright
+          npx playwright install --with-deps chromium
+
+      - name: Open PencariMovie in browser
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const page = await browser.newPage();
+
+            try {
+              const response = await page.goto(
+                'https://pencarimovie.blitz.cloud',
+                {
+                  waitUntil: 'domcontentloaded',
+                  timeout: 120000
+                }
+              );
+
+              console.log('HTTP status:', response?.status());
+              console.log('Final URL:', page.url());
+              console.log('Page title:', await page.title());
+
+              await page.waitForTimeout(5000);
+            } finally {
+              await browser.close();
+            }
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+          
